@@ -38,7 +38,8 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__(*args, **kwargs)
 
         self.config = ConfigParser()
-        self.config.read("config.ini")
+        self.config_path = "config.ini"
+        self.config.read(self.config_path)
 
         self.untis_session = None
         self.current_data = []
@@ -46,6 +47,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Untis Progress Clock")
         self.setWindowIcon(QIcon('src/icon.png'))
         self.setGeometry(200, 200, 400, 200)
+        self.setMinimumWidth(300)
         # todo set change window border color https://envyen.com/posts/2021-10-24-QT-Windows-Dark-theme/
 
         self.bars = []
@@ -62,9 +64,9 @@ class MainWindow(QMainWindow):
         self.w_login.setLayout(self.layout_login)
         self.w_settings.setLayout(self.layout_settings)
 
-        self.tabs.addTab(self.w_uhr, "Uhr")
-        self.tabs.addTab(self.w_login, "Login")
-        self.tabs.addTab(self.w_settings, "Settings")
+        self.tabs.addTab(self.w_uhr, "    Uhr    ")
+        self.tabs.addTab(self.w_login, "   Login   ")
+        self.tabs.addTab(self.w_settings, " Settings ")
 
         self.setCentralWidget(self.tabs)
 
@@ -74,13 +76,15 @@ class MainWindow(QMainWindow):
         self.password_inp = QLineEdit()
         self.password_inp.setEchoMode(QLineEdit.Password)
         self.klasse_inp = QLineEdit()
+        self.teacher_acronym_inp = QLineEdit()
 
         self.username_inp_label = QLabel("username")
         self.password_inp_label = QLabel("password")
         self.klasse_inp_label = QLabel("class")
+        self.teacher_acronym_inp_label = QLabel("teacher acronym")
 
         try:    # try reading login data from file / create one if not there
-            with open("user_credentials.txt", "r") as file:
+            with open("user_credentials.txt", "r") as file:     # todo userdata ini file
                 self.username_inp.setText(file.readline().strip())
                 self.password_inp.setText(file.readline().strip())
                 self.klasse_inp.setText(file.readline().strip())
@@ -90,24 +94,39 @@ class MainWindow(QMainWindow):
         self.login_button = QPushButton("Login")
         self.login_button.setStyleSheet("background-color: #34A835; color: white;")
         self.login_button.clicked.connect(self.login_button_pressed)
+        self.login_button.setFixedWidth(80)
+        self.login_button.setCursor(QCursor(Qt.PointingHandCursor))
 
         self.logout_button = QPushButton("Logout")
         self.logout_button.setStyleSheet("background-color: #E91224; color: white;")
         self.logout_button.clicked.connect(self.logout)
+        self.logout_button.setFixedWidth(80)
+        self.logout_button.setCursor(QCursor(Qt.PointingHandCursor))
 
         self.login_message_label = QLabel()
-        self.login_message_label.setAlignment(Qt.AlignTop)
-        self.login_message_label.setAlignment(Qt.AlignLeft)
 
-        self.layout_login.addWidget(self.username_inp_label, 0, 1)
         self.layout_login.addWidget(self.username_inp, 0, 0)
-        self.layout_login.addWidget(self.password_inp_label, 1, 1)
+        self.layout_login.addWidget(self.username_inp_label, 0, 1)
         self.layout_login.addWidget(self.password_inp, 1, 0)
-        self.layout_login.addWidget(self.klasse_inp_label, 2, 1)
+        self.layout_login.addWidget(self.password_inp_label, 1, 1)
         self.layout_login.addWidget(self.klasse_inp, 2, 0)
-        self.layout_login.addWidget(self.login_button, 3, 0)
-        self.layout_login.addWidget(self.logout_button, 4, 0)
-        self.layout_login.addWidget(self.login_message_label, 5, 0)
+        self.layout_login.addWidget(self.klasse_inp_label, 2, 1)
+        self.layout_login.addWidget(self.teacher_acronym_inp, 3, 0)
+        self.layout_login.addWidget(self.teacher_acronym_inp_label, 3, 1)
+        self.layout_login.addWidget(self.login_button, 4, 0, alignment=Qt.AlignLeft)
+        self.layout_login.addWidget(self.logout_button, 4, 0, alignment=Qt.AlignRight)
+        self.layout_login.addWidget(self.login_message_label, 5, 0, alignment=Qt.AlignLeft | Qt.AlignTop)
+
+        if self.config.getboolean("Settings", "teacher-mode"):
+            self.klasse_inp.hide()
+            self.klasse_inp_label.hide()
+            self.teacher_acronym_inp.show()
+            self.teacher_acronym_inp_label.show()
+        else:
+            self.klasse_inp.show()
+            self.klasse_inp_label.show()
+            self.teacher_acronym_inp.hide()
+            self.teacher_acronym_inp_label.hide()
 
         # settings tab
         self.theme_checkbox = QCheckBox("Dark-Mode")
@@ -129,6 +148,7 @@ class MainWindow(QMainWindow):
         self.layout_settings.addWidget(self.theme_checkbox, 0, 0)
         self.layout_settings.addWidget(self.show_start_end_label_checkbox, 1, 0)
         self.layout_settings.addWidget(self.show_bar_percentage_checkbox, 2, 0)
+        self.layout_settings.addWidget(self.teacher_mode_checkbox, 3, 0)
 
         # uhr tab
         if self.test_login()[0]:
@@ -146,19 +166,15 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.update_bars)
         self.timer.start()
 
-    def load_settings(self):
-        # todo laod settings
-        pass
-
-    def save_settings(self):
-        # todo save settings
-        pass
-
     def theme_checkbox_toggled(self):
         if self.theme_checkbox.isChecked():
             self.setStyleSheet(qdarktheme.load_stylesheet("dark"))
         else:
             self.setStyleSheet(qdarktheme.load_stylesheet("light"))
+        # save
+        self.config.set("Settings", "dark-mode", str(self.theme_checkbox.isChecked()))
+        with open(self.config_path, 'w') as configfile:  # save
+            self.config.write(configfile)
 
     def show_start_end_label_checkbox_toggled(self):
         if self.show_start_end_label_checkbox.isChecked():
@@ -169,6 +185,10 @@ class MainWindow(QMainWindow):
             for bar in self.bars:
                 bar.start_label.hide()
                 bar.end_label.hide()
+        # save
+        self.config.set("Settings", "show-start-end-label", str(self.show_start_end_label_checkbox.isChecked()))
+        with open(self.config_path, 'w') as configfile:  # save
+            self.config.write(configfile)
 
     def show_bar_percentage_checkbox_toggled(self):
         if self.show_bar_percentage_checkbox.isChecked():
@@ -177,16 +197,26 @@ class MainWindow(QMainWindow):
         else:
             for bar in self.bars:
                 bar.bar.setTextVisible(False)
+        # save
+        self.config.set("Settings", "show-bar-percentage", str(self.show_bar_percentage_checkbox.isChecked()))
+        with open(self.config_path, 'w') as configfile:  # save
+            self.config.write(configfile)
 
     def teacher_mode_checkbox_toggled(self):
         # todo teacher mode
-        pass
+        # save
+        self.config.set("Settings", "teacher-mode", str(self.teacher_mode_checkbox.isChecked()))
+        with open(self.config_path, 'w') as configfile:  # save
+            self.config.write(configfile)
+
+    def reload_bars(self):
+        self.remove_all_bars()
+        self.show_bars()
 
     def update_bars(self):
         for bar in self.bars:
             if not bar.update_percentage():
-                self.remove_all_bars()
-                self.show_bars()
+                self.reload_bars()
 
     def add_bar(self, bar):
         self.bars.append(bar)
@@ -198,17 +228,14 @@ class MainWindow(QMainWindow):
 
         self.update_bars()
 
-    def get_current_data(self):
+    def show_bars(self):
+        # show bars with untis data
         self.current_data = [self.untis_session.get_current_lesson(),
                              self.untis_session.get_current_day(),
                              self.untis_session.get_current_week()]
-
-    def show_bars(self):
-        # show bars with untis data
-        self.get_current_data()
         for data in self.current_data:
             if data is not None:
-                self.add_bar(ProgressBar(data[1], data[2], unix_to_string(data[1]), unix_to_string(data[2]), data[0], 0))  # add new progress bar
+                self.add_bar(ProgressBar(data[1], data[2], unix_to_string(data[1]), unix_to_string(data[2]), data[0], self.current_data.index(data)))  # add new progress bar
 
     def remove_bar(self, bar):
         self.layout_uhr.removeWidget(bar.title)
@@ -235,7 +262,7 @@ class MainWindow(QMainWindow):
                 self.login_message_label.setText(message)
 
                 # save login data in file
-                with open("user_credentials.txt", "w") as file:
+                with open("user_credentials.txt", "w") as file:     # todo userdata ini file
                     file.write(str(self.username_inp.text() + "\n"))
                     file.write(str(self.password_inp.text() + "\n"))
                     file.write(str(self.klasse_inp.text()))
