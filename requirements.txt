@@ -1,3 +1,4 @@
 pytz
 webuntis
 PyQt5
+pyqtdarktheme

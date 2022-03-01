@@ -1,6 +1,6 @@
 from Conversions import *
+from configparser import ConfigParser
 import webuntis
-import config
 import pytz
 import datetime
 import time
@@ -8,7 +8,10 @@ import time
 
 class UntisReader:
     def __init__(self, class_name, username, password):
-        self.local_tz = pytz.timezone('Europe/Vienna')
+        self.local_tz = pytz.timezone("Europe/Vienna")
+
+        self.config = ConfigParser()
+        self.config.read("config.ini")
 
         self.debug_enable = False
         self.lessons = []
@@ -19,9 +22,9 @@ class UntisReader:
         self.session = webuntis.Session(
             username=self.username,
             password=self.password,
-            server=config.server,
-            school=config.school,
-            useragent=config.useragent
+            server=self.config.get("Untis-API", "server"),
+            school=self.config.get("Untis-API", "school"),
+            useragent=self.config.get("Untis-API", "useragent")
         ).login()
 
     def logout(self):
@@ -77,6 +80,7 @@ class UntisReader:
         for lesson in self.lessons:
             if lesson[1] < current_unix < lesson[2]:
                 return lesson  # title, start_unix, end_unix
+        return None
 
     def get_current_day(self):
         self.parse()
@@ -100,6 +104,7 @@ class UntisReader:
 
         if start_unix < current_unix < end_unix:
             return ["day", start_unix, end_unix]
+        return None
 
     def get_current_week(self):
         self.parse()
@@ -122,4 +127,5 @@ class UntisReader:
 
         if start_unix < current_unix < end_unix:
             return ["week", start_unix, end_unix]
+        return None
 

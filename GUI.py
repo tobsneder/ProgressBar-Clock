@@ -3,15 +3,16 @@ from Conversions import unix_to_string
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+from configparser import ConfigParser
 import time
 import datetime
 import pytz
 import webuntis
-import config
+import qdarktheme
 
 
-class progress_bar:
-    def __init__(self, start_time, end_time, start_label, end_label, title, index, range_l=0, range_h=100):
+class ProgressBar:
+    def __init__(self, start_time=0, end_time=0, start_label="", end_label="", title="", index=0, range_l=0, range_h=100):
         self.start_time = start_time
         self.end_time = end_time
         self.start_label = QLabel(start_label)
@@ -28,8 +29,7 @@ class progress_bar:
             self.bar.setValue(int(percentage))
             self.bar.setFormat("%.01f%%" % percentage)
             return True
-        else:
-            return False
+        return False
 
 
 class MainWindow(QMainWindow):
@@ -37,14 +37,16 @@ class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
+        self.config = ConfigParser()
+        self.config.read("config.ini")
+
         self.untis_session = None
-        self.current_lesson = None
-        self.current_day = None
-        self.current_week = None
+        self.current_data = []
 
         self.setWindowTitle("Untis Progress Clock")
         self.setWindowIcon(QIcon('src/icon.png'))
         self.setGeometry(200, 200, 400, 200)
+        # todo set change window border color https://envyen.com/posts/2021-10-24-QT-Windows-Dark-theme/
 
         self.bars = []
 
@@ -67,6 +69,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.tabs)
 
         # login tab
+        # todo make option for teacher mode
         self.username_inp = QLineEdit()
         self.password_inp = QLineEdit()
         self.password_inp.setEchoMode(QLineEdit.Password)
@@ -85,9 +88,11 @@ class MainWindow(QMainWindow):
             open("user_credentials.txt", "w").close()
 
         self.login_button = QPushButton("Login")
+        self.login_button.setStyleSheet("background-color: #34A835; color: white;")
         self.login_button.clicked.connect(self.login_button_pressed)
 
         self.logout_button = QPushButton("Logout")
+        self.logout_button.setStyleSheet("background-color: #E91224; color: white;")
         self.logout_button.clicked.connect(self.logout)
 
         self.login_message_label = QLabel()
@@ -101,17 +106,38 @@ class MainWindow(QMainWindow):
         self.layout_login.addWidget(self.klasse_inp_label, 2, 1)
         self.layout_login.addWidget(self.klasse_inp, 2, 0)
         self.layout_login.addWidget(self.login_button, 3, 0)
-        self.layout_login.addWidget(self.logout_button, 5, 0)
-        self.layout_login.addWidget(self.login_message_label, 6, 0)
+        self.layout_login.addWidget(self.logout_button, 4, 0)
+        self.layout_login.addWidget(self.login_message_label, 5, 0)
 
         # settings tab
-        self.test_button = QPushButton("remove test")
-        self.test_button.clicked.connect(self.remove_all_bars)
-        self.layout_settings.addWidget(self.test_button)
+        self.theme_checkbox = QCheckBox("Dark-Mode")
+        self.theme_checkbox.stateChanged.connect(self.theme_checkbox_toggled)
+        self.theme_checkbox.setChecked(self.config.getboolean("Settings", "dark-mode"))
+
+        self.show_start_end_label_checkbox = QCheckBox("Show Start/End time")
+        self.show_start_end_label_checkbox.stateChanged.connect(self.show_start_end_label_checkbox_toggled)
+        self.show_start_end_label_checkbox.setChecked(self.config.getboolean("Settings", "show-start-end-label"))
+
+        self.show_bar_percentage_checkbox = QCheckBox("Show Percentage")
+        self.show_bar_percentage_checkbox.stateChanged.connect(self.show_bar_percentage_checkbox_toggled)
+        self.show_bar_percentage_checkbox.setChecked(self.config.getboolean("Settings", "show-bar-percentage"))
+
+        self.teacher_mode_checkbox = QCheckBox("Teacher Mode")      # todo teacher mode
+        self.teacher_mode_checkbox.stateChanged.connect(self.teacher_mode_checkbox_toggled)
+        self.teacher_mode_checkbox.setChecked(self.config.getboolean("Settings", "teacher-mode"))
+
+        self.layout_settings.addWidget(self.theme_checkbox, 0, 0)
+        self.layout_settings.addWidget(self.show_start_end_label_checkbox, 1, 0)
+        self.layout_settings.addWidget(self.show_bar_percentage_checkbox, 2, 0)
 
         # uhr tab
         if self.test_login()[0]:
             self.show_bars()
+            # execute previously loaded settings
+            self.theme_checkbox_toggled()
+            self.show_start_end_label_checkbox_toggled()
+            self.show_bar_percentage_checkbox_toggled()
+            self.teacher_mode_checkbox_toggled()
 
         self.show()
 
@@ -119,6 +145,42 @@ class MainWindow(QMainWindow):
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self.update_bars)
         self.timer.start()
+
+    def load_settings(self):
+        # todo laod settings
+        pass
+
+    def save_settings(self):
+        # todo save settings
+        pass
+
+    def theme_checkbox_toggled(self):
+        if self.theme_checkbox.isChecked():
+            self.setStyleSheet(qdarktheme.load_stylesheet("dark"))
+        else:
+            self.setStyleSheet(qdarktheme.load_stylesheet("light"))
+
+    def show_start_end_label_checkbox_toggled(self):
+        if self.show_start_end_label_checkbox.isChecked():
+            for bar in self.bars:
+                bar.start_label.show()
+                bar.end_label.show()
+        else:
+            for bar in self.bars:
+                bar.start_label.hide()
+                bar.end_label.hide()
+
+    def show_bar_percentage_checkbox_toggled(self):
+        if self.show_bar_percentage_checkbox.isChecked():
+            for bar in self.bars:
+                bar.bar.setTextVisible(True)
+        else:
+            for bar in self.bars:
+                bar.bar.setTextVisible(False)
+
+    def teacher_mode_checkbox_toggled(self):
+        # todo teacher mode
+        pass
 
     def update_bars(self):
         for bar in self.bars:
@@ -137,16 +199,16 @@ class MainWindow(QMainWindow):
         self.update_bars()
 
     def get_current_data(self):
-        self.current_lesson = self.untis_session.get_current_lesson()
-        self.current_day = self.untis_session.get_current_day()
-        self.current_week = self.untis_session.get_current_week()
+        self.current_data = [self.untis_session.get_current_lesson(),
+                             self.untis_session.get_current_day(),
+                             self.untis_session.get_current_week()]
 
     def show_bars(self):
         # show bars with untis data
         self.get_current_data()
-        self.add_bar(progress_bar(self.current_lesson[1], self.current_lesson[2], unix_to_string(self.current_lesson[1]), unix_to_string(self.current_lesson[2]), self.current_lesson[0], 0))  # add new progress bar
-        self.add_bar(progress_bar(self.current_day[1], self.current_day[2], unix_to_string(self.current_day[1]), unix_to_string(self.current_day[2]), self.current_day[0], 1))
-        self.add_bar(progress_bar(self.current_week[1], self.current_week[2], unix_to_string(self.current_week[1]), unix_to_string(self.current_week[2]), self.current_week[0], 2))
+        for data in self.current_data:
+            if data is not None:
+                self.add_bar(ProgressBar(data[1], data[2], unix_to_string(data[1]), unix_to_string(data[2]), data[0], 0))  # add new progress bar
 
     def remove_bar(self, bar):
         self.layout_uhr.removeWidget(bar.title)
