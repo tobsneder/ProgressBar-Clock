@@ -1,0 +1,10 @@
+----------------  Login Tab  ----------------
+(inp) Username:   Webuntis Username
+(inp) Password:   Webuntis Password
+(inp) Full Name:  Real Name (eg. Tobias Eder)
+(btn) Update: Updates name used for timetable
+---------------  Config.ini  ----------------
+[Settings]:   Stores selected settings
+[Untis-API]:  Data needed for Untis API
+----------  user_credentials.txt  -----------
+Stores:   Username, Password, Full Name

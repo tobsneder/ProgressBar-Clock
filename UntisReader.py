@@ -1,4 +1,4 @@
-from Conversions import *
+from private.Progress_Uhr.with_api.release.modules.Conversions import *
 from configparser import ConfigParser
 import webuntis
 import pytz
@@ -7,7 +7,7 @@ import time
 
 
 class UntisReader:
-    def __init__(self, class_name, username, password):
+    def __init__(self, username, password):
         self.local_tz = pytz.timezone("Europe/Vienna")
 
         self.config = ConfigParser()
@@ -15,7 +15,6 @@ class UntisReader:
 
         self.debug_enable = False
         self.lessons = []
-        self.class_name = class_name
         self.username = username
         self.password = password
 
@@ -30,19 +29,35 @@ class UntisReader:
     def logout(self):
         self.session.logout()
 
-    def parse(self):
-        self.lessons.clear()
-        klasse = self.session.klassen().filter(name=self.class_name)[0]
+    def get_lessons(self):
+        return self.lessons
 
-        today = datetime.date.today()
-        monday = today - datetime.timedelta(days=today.weekday())
-        friday = monday + datetime.timedelta(days=4)
+    def parse(self, is_student=False, is_teacher=False, forename=None, surname=None):
+        if forename is not None and surname is not None:
+            self.lessons.clear()
 
-        timetable = self.session.timetable(klasse=klasse, start=monday, end=friday)
-        for lesson in timetable:
-            self.lessons.append([lesson.subjects[0].name, datetime_to_unix(lesson.start), datetime_to_unix(lesson.end)])
+            today = datetime.date.today()
+            monday = today - datetime.timedelta(days=today.weekday())
+            friday = monday + datetime.timedelta(days=4)
 
-        self.combine_double()
+            if is_student:
+                student = self.session.get_student(surname, forename)
+                timetable = self.session.timetable(student=student, start=monday, end=friday)
+            elif is_teacher:
+                teacher = self.session.get_teacher(surname, forename)
+                timetable = self.session.timetable(teacher=teacher, start=monday, end=friday)
+            else:
+                return
+
+            for lesson in timetable:
+                self.lessons.append([lesson.subjects[0].name, datetime_to_unix(lesson.start), datetime_to_unix(lesson.end)])
+
+                if self.debug_enable:
+                    print([lesson.subjects[0].name, datetime_to_unix(lesson.start), datetime_to_unix(lesson.end)])
+
+            self.combine_double()
+        else:
+            raise Exception("Name not complete")
 
     def combine_double(self):
         new_lessons = []
@@ -75,7 +90,6 @@ class UntisReader:
         self.lessons = new_lessons
 
     def get_current_lesson(self):
-        self.parse()
         current_unix = time.time()
         for lesson in self.lessons:
             if lesson[1] < current_unix < lesson[2]:
@@ -83,7 +97,6 @@ class UntisReader:
         return None
 
     def get_current_day(self):
-        self.parse()
         current_unix = time.time()
         lesson_starts = []
         lesson_ends = []
@@ -103,11 +116,10 @@ class UntisReader:
                 end_unix = end
 
         if start_unix < current_unix < end_unix:
-            return ["day", start_unix, end_unix]
+            return ["Day", start_unix, end_unix]
         return None
 
     def get_current_week(self):
-        self.parse()
         current_unix = time.time()
         lesson_starts = []
         lesson_ends = []
@@ -126,6 +138,5 @@ class UntisReader:
                 end_unix = end
 
         if start_unix < current_unix < end_unix:
-            return ["week", start_unix, end_unix]
+            return ["Week", start_unix, end_unix]
         return None
-
