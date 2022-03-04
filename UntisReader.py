@@ -1,4 +1,4 @@
-from private.Progress_Uhr.with_api.release.modules.Conversions import *
+from Conversions import *
 from configparser import ConfigParser
 import webuntis
 import pytz
