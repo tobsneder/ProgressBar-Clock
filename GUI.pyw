@@ -16,6 +16,7 @@ class ProgressBar:
         self.end_unix = self.default_end_unix
         self.bar = QProgressBar()
         self.bar.setRange(0, 100)
+        #self.bar.setStyleSheet("QProgressBar::chunk { background-color: green; } QProgressBar { color: white; }")
         self.title = QLabel()
         self.start_label = QLabel()
         self.end_label = QLabel()
@@ -96,12 +97,13 @@ class MainWindow(QMainWindow):
         self.w_login = QWidget()
         self.w_settings = QWidget()
         self.w_info = QWidget()
-        self.layout_uhr = QGridLayout()
+
+        self.layout_clock = QGridLayout()
         self.layout_login = QGridLayout()
         self.layout_settings = QGridLayout()
         self.layout_info = QGridLayout()
 
-        self.w_uhr.setLayout(self.layout_uhr)
+        self.w_uhr.setLayout(self.layout_clock)
         self.w_login.setLayout(self.layout_login)
         self.w_settings.setLayout(self.layout_settings)
         self.w_info.setLayout(self.layout_info)
@@ -168,7 +170,7 @@ class MainWindow(QMainWindow):
         self.layout_login.addWidget(self.login_button, 3, 0, alignment=Qt.AlignLeft)
         self.layout_login.addWidget(self.update_button, 3, 0, alignment=Qt.AlignCenter)
         self.layout_login.addWidget(self.logout_button, 3, 0, alignment=Qt.AlignRight)
-        self.layout_login.addWidget(self.login_message_label, 4, 0, alignment=Qt.AlignLeft | Qt.AlignTop)
+        self.layout_login.addWidget(self.login_message_label, 4, 0, 4, 2, alignment=Qt.AlignLeft | Qt.AlignTop)
 
         # uhr tab
         self.create_bars()
@@ -194,16 +196,21 @@ class MainWindow(QMainWindow):
         self.teacher_mode_checkbox.setChecked(self.config.getboolean("Settings", "teacher-mode"))
         self.teacher_mode_checkbox_toggled()
 
+        self.window_on_top_checkbox = QCheckBox("Keep Window on Top")
+        self.window_on_top_checkbox.stateChanged.connect(self.window_on_top_checkbox_toggled)
+        self.window_on_top_checkbox.setChecked(self.config.getboolean("Settings", "window-on-top"))
+        self.window_on_top_checkbox_toggled()
+
         self.layout_settings.addWidget(self.theme_checkbox, 0, 0)
         self.layout_settings.addWidget(self.show_start_end_label_checkbox, 1, 0)
         self.layout_settings.addWidget(self.show_bar_percentage_checkbox, 2, 0)
-        self.layout_settings.addWidget(self.teacher_mode_checkbox, 3, 0, alignment=Qt.AlignTop)
+        self.layout_settings.addWidget(self.teacher_mode_checkbox, 3, 0)
+        self.layout_settings.addWidget(self.window_on_top_checkbox, 4, 0, alignment=Qt.AlignTop)
 
         # end of layout creation
 
         self.login_button_clicked()
 
-        #if self.untis_session is not None:
         self.timer = QTimer()
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self.update_bars)
@@ -242,6 +249,17 @@ class MainWindow(QMainWindow):
         with open(self.config_path, 'w') as configfile:  # save
             self.config.write(configfile)
 
+    def window_on_top_checkbox_toggled(self):
+        if self.window_on_top_checkbox.isChecked():
+            self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
+        self.show()
+        # save
+        self.config.set("Settings", "window-on-top", str(self.window_on_top_checkbox.isChecked()))
+        with open(self.config_path, 'w') as configfile:  # save
+            self.config.write(configfile)
+
     # Bars
     def update_bars(self):
         if self.untis_session is not None:
@@ -266,10 +284,10 @@ class MainWindow(QMainWindow):
 
     def create_bars(self):
         for i in range(len(self.bars)):
-            self.layout_uhr.addWidget(self.bars[i].get_title(), i, 0)
-            self.layout_uhr.addWidget(self.bars[i].get_start_label(), i, 1)
-            self.layout_uhr.addWidget(self.bars[i].get_bar(), i, 2)
-            self.layout_uhr.addWidget(self.bars[i].get_end_label(), i, 3)
+            self.layout_clock.addWidget(self.bars[i].get_title(), i, 0)
+            self.layout_clock.addWidget(self.bars[i].get_start_label(), i, 1)
+            self.layout_clock.addWidget(self.bars[i].get_bar(), i, 2)
+            self.layout_clock.addWidget(self.bars[i].get_end_label(), i, 3)
 
     def update_current_data(self):
         self.current_data = [self.untis_session.get_current_lesson(),
@@ -316,7 +334,7 @@ class MainWindow(QMainWindow):
         try:
             self.untis_session = UntisReader(username=self.username_inp.text(), password=self.password_inp.text())
             self.parse_with_current_input()
-            return True, "Login successful"
+            return True, "Login successful!   Set name to: " + self.full_name_inp.text()
         except Exception as exc:
             return False, "Login failed: " + str(exc)
 
@@ -332,7 +350,6 @@ class MainWindow(QMainWindow):
                     file.write(str(self.password_inp.text() + "\n"))
                     file.write(str(self.full_name_inp.text()))
 
-                #self.create_bars()
             else:
                 self.login_message_label.setText(message)
 
