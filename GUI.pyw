@@ -66,6 +66,10 @@ class ProgressBar:
             self.bar.show()
         else:
             self.bar.hide()
+        if bar_percentage:
+            self.bar.setTextVisible(True)
+        else:
+            self.bar.setTextVisible(False)
 
 
 class MainWindow(QMainWindow):
@@ -102,7 +106,7 @@ class MainWindow(QMainWindow):
         self.w_settings.setLayout(self.layout_settings)
         self.w_info.setLayout(self.layout_info)
 
-        self.tabs.addTab(self.w_uhr, "    Uhr    ")
+        self.tabs.addTab(self.w_uhr, "   Clock   ")
         self.tabs.addTab(self.w_login, "   Login   ")
         self.tabs.addTab(self.w_settings, " Settings ")
         self.tabs.addTab(self.w_info, "   Info   ")
